@@ -28,6 +28,9 @@ namespace interpreter {
                                                                   inst->GetDexPc(insns),        \
                                                                   instrumentation);             \
     if (found_dex_pc == DexFile::kDexNoIndex) {                                                 \
+      if (interpret_one_instruction) {                                                          \
+        shadow_frame.SetDexPC(DexFile::kDexNoIndex);                                            \
+      }                                                                                         \
       return JValue(); /* Handled in caller. */                                                 \
     } else {                                                                                    \
       int32_t displacement = static_cast<int32_t>(found_dex_pc) - static_cast<int32_t>(dex_pc); \
@@ -55,7 +58,8 @@ namespace interpreter {
 
 template<bool do_access_check, bool transaction_active>
 JValue ExecuteSwitchImpl(Thread* self, const DexFile::CodeItem* code_item,
-                         ShadowFrame& shadow_frame, JValue result_register) {
+                         ShadowFrame& shadow_frame, JValue result_register,
+                         bool interpret_one_instruction) {
   bool do_assignability_check = do_access_check;
   if (UNLIKELY(!shadow_frame.HasReferenceArray())) {
     LOG(FATAL) << "Invalid shadow frame for interpreter use";
@@ -77,7 +81,12 @@ JValue ExecuteSwitchImpl(Thread* self, const DexFile::CodeItem* code_item,
   const uint16_t* const insns = code_item->insns_;
   const Instruction* inst = Instruction::At(insns + dex_pc);
   uint16_t inst_data;
-  while (true) {
+
+  // TODO: collapse capture-variable+create-lambda into one opcode, then we won't need
+  // to keep this live for the scope of the entire function call.
+  std::unique_ptr<lambda::ClosureBuilder> lambda_closure_builder;
+  size_t lambda_captured_variable_index = 0;
+  do {
     dex_pc = inst->GetDexPc(insns);
     shadow_frame.SetDexPC(dex_pc);
     TraceExecution(shadow_frame, inst, dex_pc);
@@ -174,6 +183,9 @@ JValue ExecuteSwitchImpl(Thread* self, const DexFile::CodeItem* code_item,
                                            shadow_frame.GetMethod(), inst->GetDexPc(insns),
                                            result);
         }
+        if (interpret_one_instruction) {
+          shadow_frame.SetDexPC(DexFile::kDexNoIndex);
+        }
         return result;
       }
       case Instruction::RETURN_VOID: {
@@ -185,6 +197,9 @@ JValue ExecuteSwitchImpl(Thread* self, const DexFile::CodeItem* code_item,
           instrumentation->MethodExitEvent(self, shadow_frame.GetThisObject(code_item->ins_size_),
                                            shadow_frame.GetMethod(), inst->GetDexPc(insns),
                                            result);
+        }
+        if (interpret_one_instruction) {
+          shadow_frame.SetDexPC(DexFile::kDexNoIndex);
         }
         return result;
       }
@@ -199,6 +214,9 @@ JValue ExecuteSwitchImpl(Thread* self, const DexFile::CodeItem* code_item,
                                            shadow_frame.GetMethod(), inst->GetDexPc(insns),
                                            result);
         }
+        if (interpret_one_instruction) {
+          shadow_frame.SetDexPC(DexFile::kDexNoIndex);
+        }
         return result;
       }
       case Instruction::RETURN_WIDE: {
@@ -210,6 +228,9 @@ JValue ExecuteSwitchImpl(Thread* self, const DexFile::CodeItem* code_item,
           instrumentation->MethodExitEvent(self, shadow_frame.GetThisObject(code_item->ins_size_),
                                            shadow_frame.GetMethod(), inst->GetDexPc(insns),
                                            result);
+        }
+        if (interpret_one_instruction) {
+          shadow_frame.SetDexPC(DexFile::kDexNoIndex);
         }
         return result;
       }
@@ -242,6 +263,9 @@ JValue ExecuteSwitchImpl(Thread* self, const DexFile::CodeItem* code_item,
           instrumentation->MethodExitEvent(self, shadow_frame.GetThisObject(code_item->ins_size_),
                                            shadow_frame.GetMethod(), inst->GetDexPc(insns),
                                            result);
+        }
+        if (interpret_one_instruction) {
+          shadow_frame.SetDexPC(DexFile::kDexNoIndex);
         }
         return result;
       }
@@ -2223,22 +2247,29 @@ JValue ExecuteSwitchImpl(Thread* self, const DexFile::CodeItem* code_item,
       case Instruction::UNUSED_7A:
         UnexpectedOpcode(inst, shadow_frame);
     }
-  }
+  } while (!interpret_one_instruction);
+  // Record where we stopped.
+  shadow_frame.SetDexPC(inst->GetDexPc(insns));
+  return JValue();
 }  // NOLINT(readability/fn_size)
 
 // Explicit definitions of ExecuteSwitchImpl.
 template SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) HOT_ATTR
 JValue ExecuteSwitchImpl<true, false>(Thread* self, const DexFile::CodeItem* code_item,
-                                      ShadowFrame& shadow_frame, JValue result_register);
+                                      ShadowFrame& shadow_frame, JValue result_register,
+                                      bool interpret_one_instruction);
 template SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) HOT_ATTR
 JValue ExecuteSwitchImpl<false, false>(Thread* self, const DexFile::CodeItem* code_item,
-                                       ShadowFrame& shadow_frame, JValue result_register);
+                                       ShadowFrame& shadow_frame, JValue result_register,
+                                       bool interpret_one_instruction);
 template SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
 JValue ExecuteSwitchImpl<true, true>(Thread* self, const DexFile::CodeItem* code_item,
-                                     ShadowFrame& shadow_frame, JValue result_register);
+                                     ShadowFrame& shadow_frame, JValue result_register,
+                                     bool interpret_one_instruction);
 template SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
 JValue ExecuteSwitchImpl<false, true>(Thread* self, const DexFile::CodeItem* code_item,
-                                      ShadowFrame& shadow_frame, JValue result_register);
+                                      ShadowFrame& shadow_frame, JValue result_register,
+                                      bool interpret_one_instruction);
 
 }  // namespace interpreter
 }  // namespace art
