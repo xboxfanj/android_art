@@ -82,10 +82,6 @@ JValue ExecuteSwitchImpl(Thread* self, const DexFile::CodeItem* code_item,
   const Instruction* inst = Instruction::At(insns + dex_pc);
   uint16_t inst_data;
 
-  // TODO: collapse capture-variable+create-lambda into one opcode, then we won't need
-  // to keep this live for the scope of the entire function call.
-  std::unique_ptr<lambda::ClosureBuilder> lambda_closure_builder;
-  size_t lambda_captured_variable_index = 0;
   do {
     dex_pc = inst->GetDexPc(insns);
     shadow_frame.SetDexPC(dex_pc);

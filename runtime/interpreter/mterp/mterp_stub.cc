@@ -39,8 +39,7 @@ void InitMterpTls(Thread* self) {
  * The platform-specific implementation must provide this.
  */
 extern "C" bool ExecuteMterpImpl(Thread* self, const DexFile::CodeItem* code_item,
-                                 ShadowFrame* shadow_frame, JValue* result_register)
-    SHARED_REQUIRES(Locks::mutator_lock_) {
+                                 ShadowFrame* shadow_frame, JValue* result_register) {
   UNUSED(self); UNUSED(shadow_frame); UNUSED(code_item); UNUSED(result_register);
   UNIMPLEMENTED(art::FATAL);
   return false;

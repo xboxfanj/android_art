@@ -119,6 +119,7 @@ class ShadowFrame {
   }
 
   void SetDexPC(uint32_t dex_pc) {
+    dex_pc_ = dex_pc;
     dex_pc_ptr_ = nullptr;
   }
 
@@ -149,7 +150,7 @@ class ShadowFrame {
 
   void SetCodeItem(const DexFile::CodeItem* code_item) {
     code_item_ = code_item;
-   }
+  }
 
   float GetVRegFloat(size_t i) const {
     DCHECK_LT(i, NumberOfVRegs());
@@ -284,10 +285,6 @@ class ShadowFrame {
     }
   }
 
-  static size_t LockCountDataOffset() {
-    return OFFSETOF_MEMBER(ShadowFrame, lock_count_data_);
-  }
-
   static size_t LinkOffset() {
     return OFFSETOF_MEMBER(ShadowFrame, link_);
   }
@@ -312,7 +309,7 @@ class ShadowFrame {
     return dex_pc_ptr_;
   }
 
-  JValue* GetResultRegister() {
+  uint16_t* GetResultRegister() {
     return result_register_;
   }
 
@@ -342,7 +339,7 @@ class ShadowFrame {
   // Link to previous shadow frame or null.
   ShadowFrame* link_;
   ArtMethod* method_;
-  JValue* result_register_;
+  uint16_t* result_register_;
   uint16_t* dex_pc_ptr_;
   const DexFile::CodeItem* code_item_;
   uint32_t vregs_[0];

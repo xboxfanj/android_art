@@ -197,6 +197,7 @@ art_cflags := \
   -Wshadow \
   -Wunused \
   -fvisibility=protected \
+  -Wno-error=array-bounds \
   $(art_default_gc_type_cflags)
 
 # Missing declarations: too many at the moment, as we use "extern" quite a bit.
